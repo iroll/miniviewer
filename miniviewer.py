@@ -18,7 +18,7 @@ if missing:
     print(f"Missing packages detected: {', '.join(missing)}")
     choice = input("Attempt to install them now with pip? (y/n): ").strip().lower()
     if choice == "y":
-        subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", *missing])
     else:
         print("Aborting")
         sys.exit(1)
