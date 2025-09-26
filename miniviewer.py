@@ -1,5 +1,5 @@
 # Minimal Photo Viewer (HEIC-friendly) for Windows/macOS/Linux
-# deps: PIL, pillow_heif, tkinter
+# deps: PIL, pillow_heif, tkinter, send2trash (optional)
 
 # ---------- Dependency Check & Auto-Install ----------
 # This block checks if required packages are present, and optionally installs them.
@@ -7,7 +7,7 @@ import importlib.util
 import subprocess
 import sys
 
-required_packages = ["PIL", "pillow_heif", "tkinter"]
+required_packages = ["Pillow", "pillow_heif", "tkinter", "send2trash"]
 missing = []
 
 for pkg in required_packages:
@@ -16,20 +16,26 @@ for pkg in required_packages:
 
 if missing:
     print(f"Missing packages detected: {', '.join(missing)}")
-    choice = input("Attempt to install them now with pip? (y/n): ").strip().lower()
-    if choice == "y":
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", *missing])
-    else:
-        print("Aborting")
-        sys.exit(1)
+#    choice = input("Attempt to install them now with pip? (y/n): ").strip().lower()
+#    if choice == "y":
+#        subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", *missing])
+#    else:
+#        print("Aborting")
+    sys.exit(1)
 
-# ---------- End Dependency Check ----------
-
+# ---------- Imports ----------
 import os
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
+
+# Safe delete (if send2trash is available)
+try:
+    from send2trash import send2trash
+    HAS_TRASH = True
+except ImportError:
+    HAS_TRASH = False
 
 # Make PIL understand .heic via libheif
 try:
@@ -77,12 +83,13 @@ class MiniViewer(tk.Tk):
         self.bind("0", lambda e: self.fit())     # fit to window
         self.bind("1", lambda e: self.set_zoom(1.0))  # 100%
         self.bind("r", lambda e: self.rotate(90))
-        self.bind("R", lambda e: self.rotate(90))
+        self.bind("R", lambda e: self.rotate(-90))
         self.bind("f", lambda e: self.toggle_fullscreen())
         self.bind("<Escape>", lambda e: self.exit_fullscreen())
         self.bind("<Configure>", lambda e: self.redraw())
         self.bind("o", lambda e: self.open_dialog())
         self.bind("O", lambda e: self.open_dialog())
+        self.bind("<Delete>", lambda e: self.delete_current())
         self.bind("<MouseWheel>", self._scroll_zoom)         # Windows
         self.bind("<Button-4>", lambda e: self.zoom_by(1.1)) # Linux
         self.bind("<Button-5>", lambda e: self.zoom_by(0.9)) # Linux
@@ -150,6 +157,29 @@ class MiniViewer(tk.Tk):
         if not self.files: return
         self.open_index(self.index - 1)
 
+    # ---------- File ops ----------
+
+    def delete_current(self):
+        if not self.files: return
+        path = self.files[self.index]
+        try:
+            if HAS_TRASH:
+                send2trash(str(path))
+            else:
+                path.unlink()
+            self.status.set(f"Deleted: {path.name}")
+            del self.files[self.index]
+            if self.index >= len(self.files):
+                self.index = max(0, len(self.files)-1)
+            if self.files:
+                self.open_index(self.index)
+            else:
+                self.image = None
+                self.redraw()
+                self.status.set("No images left.")
+        except Exception as e:
+            self.status.set(f"Failed to delete {path.name}: {e}")
+    
     # ---------- View ops ----------
     def rotate(self, deg: int):
         if self.image is None: return
