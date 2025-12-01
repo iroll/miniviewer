@@ -60,6 +60,13 @@ except Exception as e:
 SUPPORTED_EXTS = {".heic", ".heif", ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"}
 
 class MiniViewer(tk.Tk):
+    
+    # Keys that trigger an action and conflict with typing in the rename box.
+    # This list must be updated if new single-key/non-modifier shortcuts are added to _bind_keys().
+    CONFLICT_BINDINGS = [
+        "<Left>", "<Right>", "<space>", "<Delete>", "<BackSpace>", 
+        "+", "=", "-", "0", "1", "r", "R", "t", "T", "f", "o", "O"
+    ]
     def __init__(self, start_path: Path | None = None):
         super().__init__()
         self.title("MiniViewer")
@@ -224,6 +231,9 @@ class MiniViewer(tk.Tk):
         # If an entry already exists, cancel/destroy it first
         if self.rename_entry:
             self.cancel_rename() 
+
+        for key in self.CONFLICT_BINDINGS:
+            self.unbind(key)
 
         self.rename_current_path = self.files[self.index]
         path = self.rename_current_path
