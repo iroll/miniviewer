@@ -87,35 +87,53 @@ class MiniViewer(tk.Tk):
         tk.Label(bar, textvariable=self.status, fg="#ddd", bg="#181818").pack(side=tk.LEFT, padx=8, pady=4)
 
         # Bindings
-        self.bind("<Left>", lambda e: self.prev())
-        self.bind("<Right>", lambda e: self.next())
-        self.bind("<space>", lambda e: self.next())
-        self.bind("<BackSpace>", lambda e: self.delete_current())
-        self.bind("<Delete>", lambda e: self.delete_current())
-        self.bind("<Escape>", lambda e: self.cancel_rename())
-        self.bind("<Return>", lambda e: self.do_rename())
-        self.bind("+", lambda e: self.zoom_by(1.25))
-        self.bind("=", lambda e: self.zoom_by(1.25))
-        self.bind("-", lambda e: self.zoom_by(0.8))
-        self.bind("0", lambda e: self.fit())     # fit to window
-        self.bind("1", lambda e: self.set_zoom(1.0))  # 100%
-        self.bind("r", lambda e: self.rotate(90))
-        self.bind("R", lambda e: self.rotate(-90))
-        self.bind("t", lambda e: self.start_rename(use_date=False))
-        self.bind("T", lambda e: self.start_rename(use_date=True))
-        self.bind("f", lambda e: self.toggle_fullscreen())
-        self.bind("<Escape>", lambda e: self.exit_fullscreen())
-        self.bind("<Configure>", lambda e: self.redraw())
-        self.bind("o", lambda e: self.open_dialog())
-        self.bind("O", lambda e: self.open_dialog())
-        self.bind("<MouseWheel>", self._scroll_zoom)         # Windows
-        self.bind("<Button-4>", lambda e: self.zoom_by(1.1)) # Linux
-        self.bind("<Button-5>", lambda e: self.zoom_by(0.9)) # Linux
+        self._bind_keys()
 
         # Start
         if start_path:
             self.load_path(start_path)
 
+    # ---------- Key Bindings ----------
+    
+    def _bind_keys(self):
+        
+        # Navigation
+        self.bind("<Left>", lambda e: self.prev())
+        self.bind("<Right>", lambda e: self.next())
+        self.bind("<space>", lambda e: self.next())
+        
+        # Deletion
+        self.bind("<BackSpace>", lambda e: self.delete_current())
+        self.bind("<Delete>", lambda e: self.delete_current())
+
+        # Zoom/Fit
+        self.bind("+", lambda e: self.zoom_by(1.25))
+        self.bind("=", lambda e: self.zoom_by(1.25))
+        self.bind("-", lambda e: self.zoom_by(0.8))
+        self.bind("0", lambda e: self.fit())     # fit to window
+        self.bind("1", lambda e: self.set_zoom(1.0))  # 100%
+
+        # Rotation
+        self.bind("r", lambda e: self.rotate(90))
+        self.bind("R", lambda e: self.rotate(-90))
+        
+        # Rename Activation
+        self.bind("t", lambda e: self.start_rename(use_date=False))
+        self.bind("T", lambda e: self.start_rename(use_date=True))
+
+        # Fullscreen/Open
+        self.bind("f", lambda e: self.toggle_fullscreen())
+        self.bind("o", lambda e: self.open_dialog())
+        self.bind("O", lambda e: self.open_dialog())
+
+        # Global/Window Events (These remain bound globally)
+        self.bind("<Escape>", lambda e: self.cancel_rename_or_exit_fullscreen()) # New combined handler
+        self.bind("<Return>", lambda e: self.do_rename()) 
+        self.bind("<Configure>", lambda e: self.redraw())
+        self.bind("<MouseWheel>", self._scroll_zoom)         # Windows
+        self.bind("<Button-4>", lambda e: self.zoom_by(1.1)) # Linux
+        self.bind("<Button-5>", lambda e: self.zoom_by(0.9)) # Linux
+    
     # ---------- File loading ----------
     def open_dialog(self):
         choice = messagebox.askquestion("Open", "Open a *folder*? (No = pick a single file)")
@@ -291,7 +309,8 @@ class MiniViewer(tk.Tk):
             self.rename_entry = None
             self.rename_current_path = None
             self.focus_set() # Return focus to the main window for navigation
-    
+            self._bind_keys() # Resore Keybinds
+            
     # ---------- View ops ----------
     def rotate(self, deg: int):
         if self.image is None: return
@@ -317,6 +336,12 @@ class MiniViewer(tk.Tk):
         self.attributes("-fullscreen", self.fullscreen)
         self.redraw()
 
+    def cancel_rename_or_exit_fullscreen(self):
+        if self.rename_entry:
+            self.cancel_rename()
+        else:
+            self.exit_fullscreen()
+    
     def exit_fullscreen(self):
         if self.fullscreen:
             self.fullscreen = False
