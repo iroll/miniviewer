@@ -7,21 +7,32 @@ import importlib.util
 import subprocess
 import sys
 
-required_packages = ["Pillow", "pillow_heif", "tkinter", "send2trash"]
+required_packages = {
+    "PIL": "Pillow",
+    "pillow_heif": "pillow_heif",
+    "tkinter": "tkinter",
+    "send2trash": "send2trash",
+}
+
 missing = []
 
-for pkg in required_packages:
-    if importlib.util.find_spec(pkg) is None:
-        missing.append(pkg)
+for import_name, display_name in required_packages.items():
+    if importlib.util.find_spec(import_name) is None:
+        missing.append(display_name)
 
 if missing:
     print(f"Missing packages detected: {', '.join(missing)}")
-#    choice = input("Attempt to install them now with pip? (y/n): ").strip().lower()
-#    if choice == "y":
-#        subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", *missing])
-#    else:
-#        print("Aborting")
-    sys.exit(1)
+    choice = input("Attempt to install them now with pip? (y/n): ").strip().lower()
+    if choice == "y":
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
+            print("Packages installed successfully. Relaunching...")
+        except subprocess.CalledProcessError:
+            print("Package installation failed. Aborting.")
+            sys.exit(1)
+    else:
+        print("Aborting due to missing packages.")
+        sys.exit(1)
 
 # ---------- Imports ----------
 import os
