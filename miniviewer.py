@@ -29,6 +29,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
+import datetime
 
 # Safe delete (if send2trash is available)
 try:
@@ -63,6 +64,8 @@ class MiniViewer(tk.Tk):
         self.image = None           # PIL Image (full-res)
         self.render = None          # PhotoImage (for Tk)
         self.fullscreen = False
+        self.rename_entry = None
+        self.rename_current_path = None
 
         # UI
         self.status = tk.StringVar(value="Open (O) file or folder…")
@@ -78,6 +81,8 @@ class MiniViewer(tk.Tk):
         self.bind("<space>", lambda e: self.next())
         self.bind("<BackSpace>", lambda e: self.delete_current())
         self.bind("<Delete>", lambda e: self.delete_current())
+        self.bind("<Escape>", lambda e: self.cancel_rename())
+        self.bind("<Return>", lambda e: self.do_rename())
         self.bind("+", lambda e: self.zoom_by(1.25))
         self.bind("=", lambda e: self.zoom_by(1.25))
         self.bind("-", lambda e: self.zoom_by(0.8))
@@ -85,6 +90,8 @@ class MiniViewer(tk.Tk):
         self.bind("1", lambda e: self.set_zoom(1.0))  # 100%
         self.bind("r", lambda e: self.rotate(90))
         self.bind("R", lambda e: self.rotate(-90))
+        self.bind("t", lambda e: self.start_rename(use_date=False))
+        self.bind("T", lambda e: self.start_rename(use_date=True))
         self.bind("f", lambda e: self.toggle_fullscreen())
         self.bind("<Escape>", lambda e: self.exit_fullscreen())
         self.bind("<Configure>", lambda e: self.redraw())
@@ -179,6 +186,100 @@ class MiniViewer(tk.Tk):
                 self.status.set("No images left.")
         except Exception as e:
             self.status.set(f"Failed to delete {path.name}: {e}")
+
+    # ---------- Rename ops ----------
+    
+    def start_rename(self, use_date: bool):
+        if self.image is None: return
+        
+        # If an entry already exists, cancel/destroy it first
+        if self.rename_entry:
+            self.cancel_rename() 
+
+        self.rename_current_path = self.files[self.index]
+        path = self.rename_current_path
+        
+        if use_date:
+            try:
+                # Get modification time (mtime) and format YYYYMMDD
+                timestamp = path.stat().st_mtime
+                date_str = datetime.datetime.fromtimestamp(timestamp).strftime("%Y%m%d")
+                initial_name = f"{date_str}_"
+            except Exception as e:
+                self.status.set(f"Error getting date for rename: {e}")
+                initial_name = path.stem # Fallback
+        else:
+            initial_name = path.stem
+
+        # 1. Create the Entry widget
+        self.rename_entry = tk.Entry(self, width=50, bg="#333", fg="#fff", 
+                                     insertbackground="#fff", font=("Arial", 14))
+        self.rename_entry.insert(0, initial_name)
+        
+        # 2. Place it centered near the bottom
+        # Use a window relative placement for the overlay
+        self.rename_entry.place(relx=0.5, rely=0.9, anchor=tk.CENTER)
+        
+        # 3. Give it focus and select the text for quick editing
+        self.rename_entry.focus_set()
+        if not use_date:
+            # Only select everything if we didn't pre-populate the date
+            self.rename_entry.select_range(0, tk.END)
+
+    def do_rename(self):
+        if self.rename_entry is None: 
+            return # Ignore Enter press if not renaming
+
+        new_name_stem = self.rename_entry.get().strip()
+        current_path = self.rename_current_path
+
+        if not new_name_stem:
+            self.status.set("Rename failed: New name cannot be empty.")
+            return
+
+        try:
+            # 1. Construct the new path with the original extension
+            extension = current_path.suffix
+            new_path = current_path.parent / (new_name_stem + extension)
+
+            if new_path == current_path:
+                self.status.set("Name is unchanged. Aborting rename.")
+                self.cancel_rename()
+                return
+
+            # 2. Check for conflicts
+            if new_path.exists():
+                messagebox.showerror("Conflict", f"File already exists:\n{new_path.name}")
+                return # Keep the entry open for correction
+            
+            # 3. Execute rename
+            current_path.rename(new_path)
+
+            # 4. Update internal state
+            original_index = self.index
+            
+            # Remove old path and insert new path, then resort and re-index
+            self.files.pop(original_index)
+            self.files.append(new_path)
+            self.files.sort()
+            
+            self.index = self.files.index(new_path)
+            self.rename_current_path = None
+
+            self.open_index(self.index) # Reload image and update status bar
+            self.status.set(f"Renamed to: {new_path.name}")
+
+        except Exception as e:
+            self.status.set(f"Rename failed: {e}")
+        finally:
+            self.cancel_rename() # Clean up Entry widget
+
+    def cancel_rename(self):
+        if self.rename_entry:
+            self.rename_entry.destroy()
+            self.rename_entry = None
+            self.rename_current_path = None
+            self.focus_set() # Return focus to the main window for navigation
     
     # ---------- View ops ----------
     def rotate(self, deg: int):
