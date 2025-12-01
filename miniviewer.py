@@ -76,7 +76,8 @@ class MiniViewer(tk.Tk):
         self.bind("<Left>", lambda e: self.prev())
         self.bind("<Right>", lambda e: self.next())
         self.bind("<space>", lambda e: self.next())
-        self.bind("<BackSpace>", lambda e: self.prev())
+        self.bind("<BackSpace>", lambda e: self.delete_current())
+        self.bind("<Delete>", lambda e: self.delete_current())
         self.bind("+", lambda e: self.zoom_by(1.25))
         self.bind("=", lambda e: self.zoom_by(1.25))
         self.bind("-", lambda e: self.zoom_by(0.8))
@@ -89,7 +90,6 @@ class MiniViewer(tk.Tk):
         self.bind("<Configure>", lambda e: self.redraw())
         self.bind("o", lambda e: self.open_dialog())
         self.bind("O", lambda e: self.open_dialog())
-        self.bind("<Delete>", lambda e: self.delete_current())
         self.bind("<MouseWheel>", self._scroll_zoom)         # Windows
         self.bind("<Button-4>", lambda e: self.zoom_by(1.1)) # Linux
         self.bind("<Button-5>", lambda e: self.zoom_by(0.9)) # Linux
