@@ -142,17 +142,69 @@ class MiniViewer(tk.Tk):
         self.bind("<Button-5>", lambda e: self.zoom_by(0.9)) # Linux
     
     # ---------- File loading ----------
+    def _ask_open_choice(self):
+        # Helper for the dialog box for selecting file or folder           
+        # 1. Setup the dialog window
+        dialog = tk.Toplevel(self)
+        dialog.title("Open")
+        dialog.resizable(False, False)
+        dialog.geometry("250x100")
+        
+        # Center the dialog over the main window
+        x = self.winfo_x() + (self.winfo_width() // 2) - 125
+        y = self.winfo_y() + (self.winfo_height() // 2) - 50
+        dialog.geometry(f"+{x}+{y}")
+
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        # Use an attribute to store the choice, initialized to None
+        self.open_choice = None
+
+        tk.Label(dialog, text="Select Mode:", font=("Arial", 14)).pack(pady=10)
+
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(pady=5)
+
+        def set_choice_and_destroy(choice):
+            self.open_choice = choice
+            dialog.destroy()
+
+        # Bind closing the dialog (using the 'X' button) to set choice to None
+        dialog.protocol("WM_DELETE_WINDOW", lambda: set_choice_and_destroy(None))
+
+        # 2. Create buttons
+        tk.Button(button_frame, text="File", command=lambda: set_choice_and_destroy('file'), width=10).pack(side=tk.LEFT, padx=10)
+        tk.Button(button_frame, text="Folder", command=lambda: set_choice_and_destroy('folder'), width=10).pack(side=tk.RIGHT, padx=10)
+
+        # 3. Wait for the dialog to close (blocks execution until a button is pressed)
+        self.wait_window(dialog)
+        
+        # Return the stored choice
+        return self.open_choice
+    
     def open_dialog(self):
-        choice = messagebox.askquestion("Open", "Open a *folder*? (No = pick a single file)")
-        if choice == "yes":
+        # Handler for the dialog box for selecting file or folder           
+        # 1. Ask the user for their preferred action using the custom popup
+        choice = self._ask_open_choice()
+
+        if choice == 'file':
+            # Option 1: User chose to open a single file
+            f = filedialog.askopenfilename(
+                title="Choose image file",
+                filetypes=[("Images", "*.heic *.heif *.jpg *.jpeg *.png *.webp *.bmp *.tiff")]
+            )
+            if f:
+                self.load_path(Path(f))
+        
+        elif choice == 'folder':
+            # Option 2: User chose to open a folder
             folder = filedialog.askdirectory(title="Choose folder")
             if folder:
                 self.load_path(Path(folder))
-        else:
-            f = filedialog.askopenfilename(title="Choose image",
-                                           filetypes=[("Images", "*.heic *.heif *.jpg *.jpeg *.png *.webp *.bmp *.tiff")])
-            if f:
-                self.load_path(Path(f))
+
+        # Cleanup the temporary attribute
+        self.open_choice = None
 
     def load_path(self, p: Path):
         p = p.expanduser()
