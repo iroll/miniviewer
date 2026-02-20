@@ -372,13 +372,24 @@ class MiniViewer(tk.Tk):
             self.rename_current_path = None
             self.focus_set() # Return focus to the main window for navigation
             self._bind_keys() # Resore Keybinds
-            
+
     # ---------- View ops ----------
+
+    def save_rotation(self):
+        if self.image is None or not self.files: return
+        path = self.files[self.index]
+        try:
+            self.image.save(path)
+            self.status.set(f"Saved rotation to: {path.name}")
+        except Exception as e:
+            self.status.set(f"Save failed: {e}")
+                
     def rotate(self, deg: int):
         if self.image is None: return
         self.rotation = (self.rotation + deg) % 360
         self.image = self.image.rotate(-deg, expand=True)
         self.redraw()
+        self.save_rotation()
 
     def set_zoom(self, z: float):
         if self.image is None: return
